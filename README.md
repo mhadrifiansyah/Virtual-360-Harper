@@ -1,1 +1,714 @@
-# Virtual-360-Harper
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Grand Lumina Hotel - Virtual Tour 360° Interaktif</title>
+    <!-- Fonts & Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <!-- Pannellum Library -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.css">
+    <script src="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.js"></script>
+    <!-- GSAP for smooth animations -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: #111;
+            overflow: hidden;
+            color: #fff;
+        }
+
+        /* Custom Cursor (Luxury) */
+        body {
+            cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="27" viewBox="0 0 24 27"><polygon points="2,2 22,13 12,13 10,25" fill="%23C8A96A" stroke="%23111" stroke-width="1.5"/><circle cx="12" cy="12" r="2" fill="white"/></svg>') 12 5, auto;
+        }
+
+        /* Loading Bar */
+        #loading-progress {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 0%;
+            height: 3px;
+            background: #C8A96A;
+            z-index: 10000;
+            transition: width 0.3s ease;
+            box-shadow: 0 0 8px gold;
+        }
+
+        /* Header Sticky + Blur */
+        .header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: 1.2rem 3rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 1000;
+            transition: all 0.4s ease;
+            backdrop-filter: blur(8px);
+            background: rgba(17, 17, 17, 0.4);
+            border-bottom: 1px solid rgba(200, 169, 106, 0.2);
+        }
+        .header.scrolled {
+            background: rgba(17, 17, 17, 0.95);
+            backdrop-filter: blur(12px);
+            padding: 0.8rem 3rem;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.5);
+            border-bottom: 1px solid #C8A96A;
+        }
+        .logo {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.8rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            background: linear-gradient(135deg, #FFFFFF, #C8A96A);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        .nav-menu {
+            display: flex;
+            gap: 2rem;
+        }
+        .nav-menu a {
+            color: #f5f5f5;
+            text-decoration: none;
+            font-weight: 500;
+            transition: 0.3s;
+            font-size: 1rem;
+            letter-spacing: 0.5px;
+        }
+        .nav-menu a:hover { color: #C8A96A; transform: translateY(-2px); }
+        .menu-icon {
+            display: none;
+            font-size: 1.8rem;
+            cursor: pointer;
+            color: #C8A96A;
+        }
+
+        /* Sidebar (Left Panel) */
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: -320px;
+            width: 300px;
+            height: 100vh;
+            background: rgba(17, 17, 17, 0.95);
+            backdrop-filter: blur(16px);
+            z-index: 1100;
+            transition: 0.4s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+            border-right: 1px solid rgba(200,169,106,0.4);
+            padding: 6rem 1.5rem 2rem;
+            box-shadow: 5px 0 25px rgba(0,0,0,0.5);
+        }
+        .sidebar.open {
+            left: 0;
+        }
+        .close-sidebar {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            font-size: 1.6rem;
+            cursor: pointer;
+            color: #C8A96A;
+        }
+        .scene-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+        .scene-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.8rem 1rem;
+            border-radius: 12px;
+            transition: 0.2s;
+            cursor: pointer;
+            background: rgba(255,255,255,0.03);
+            border-left: 3px solid transparent;
+        }
+        .scene-item i {
+            font-size: 1.4rem;
+            width: 30px;
+            color: #C8A96A;
+        }
+        .scene-item span {
+            font-weight: 500;
+        }
+        .scene-item.active {
+            background: rgba(200,169,106,0.2);
+            border-left-color: #C8A96A;
+            box-shadow: 0 0 8px rgba(200,169,106,0.3);
+        }
+        .scene-item:hover {
+            background: rgba(200,169,106,0.15);
+            transform: translateX(5px);
+        }
+
+        /* Control UI & Mini Map */
+        .controls-panel {
+            position: fixed;
+            bottom: 25px;
+            right: 25px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            z-index: 900;
+        }
+        .ctrl-btn {
+            width: 48px;
+            height: 48px;
+            background: rgba(17,17,17,0.8);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(200,169,106,0.6);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #C8A96A;
+            font-size: 1.4rem;
+            cursor: pointer;
+            transition: 0.2s;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        .ctrl-btn:hover {
+            background: #C8A96A;
+            color: #111;
+            transform: scale(1.05);
+            border-color: white;
+        }
+        .mini-map {
+            position: fixed;
+            bottom: 25px;
+            right: 90px;
+            background: rgba(17,17,17,0.85);
+            backdrop-filter: blur(12px);
+            padding: 12px 20px;
+            border-radius: 40px;
+            border: 1px solid #C8A96A;
+            display: flex;
+            gap: 18px;
+            z-index: 900;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+        .mini-map span {
+            cursor: pointer;
+            transition: 0.2s;
+            padding: 5px 8px;
+            border-radius: 20px;
+        }
+        .mini-map span:hover, .mini-map span.active-map {
+            background: #C8A96A;
+            color: #111;
+        }
+
+        /* Info Panel (Right Overlay) */
+        .info-panel {
+            position: fixed;
+            top: 100px;
+            right: -380px;
+            width: 340px;
+            background: rgba(17,17,17,0.92);
+            backdrop-filter: blur(16px);
+            border-radius: 20px 0 0 20px;
+            border-left: 2px solid #C8A96A;
+            padding: 1.5rem;
+            z-index: 1050;
+            transition: 0.4s ease;
+            box-shadow: -5px 5px 25px rgba(0,0,0,0.5);
+        }
+        .info-panel.open {
+            right: 0;
+        }
+        .info-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #C8A96A;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+        .info-header h3 {
+            font-family: 'Playfair Display', serif;
+            color: #C8A96A;
+        }
+        .close-info {
+            font-size: 1.3rem;
+            cursor: pointer;
+        }
+        .info-panel img {
+            width: 100%;
+            border-radius: 12px;
+            margin: 15px 0;
+            border: 1px solid gold;
+        }
+        .info-desc {
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+
+        /* Footer */
+        .footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background: rgba(17,17,17,0.6);
+            backdrop-filter: blur(8px);
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.75rem;
+            z-index: 800;
+            pointer-events: auto;
+            border-top: 0.5px solid rgba(200,169,106,0.3);
+        }
+        .social-icons a {
+            color: #C8A96A;
+            margin: 0 8px;
+            font-size: 1rem;
+            transition: 0.2s;
+        }
+        .social-icons a:hover { color: white; }
+
+        /* Pannellum container */
+        #panorama {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Toggle sidebar button */
+        .toggle-sidebar {
+            position: fixed;
+            top: 20px;
+            left: 25px;
+            z-index: 1001;
+            font-size: 1.8rem;
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(5px);
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: #C8A96A;
+            transition: 0.2s;
+            border: 1px solid rgba(200,169,106,0.6);
+        }
+        .toggle-sidebar:hover {
+            background: #C8A96A;
+            color: black;
+        }
+
+        @media (max-width: 768px) {
+            .header { padding: 0.8rem 1.5rem; }
+            .nav-menu { display: none; }
+            .menu-icon { display: block; }
+            .mini-map { display: none; }
+            .info-panel { width: 280px; }
+        }
+        /* Pulse animation for hotspots */
+        .pnlm-hotspot {
+            transition: transform 0.2s;
+        }
+        .pnlm-hotspot:hover {
+            transform: scale(1.2);
+        }
+        .custom-tooltip {
+            background: rgba(0,0,0,0.8);
+            color: #C8A96A;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            white-space: nowrap;
+        }
+    </style>
+</head>
+<body>
+<div id="loading-progress"></div>
+<div class="toggle-sidebar" id="toggleSidebarBtn"><i class="fas fa-bars"></i></div>
+
+<div class="header" id="mainHeader">
+    <div class="logo">GRAND LUMINA</div>
+    <div class="nav-menu">
+        <a href="#">Home</a>
+        <a href="#" id="virtualTourLink">Virtual Tour</a>
+        <a href="#">Rooms</a>
+        <a href="#">Facilities</a>
+        <a href="#">Contact</a>
+    </div>
+    <div class="menu-icon"><i class="fas fa-ellipsis-h"></i></div>
+</div>
+
+<!-- Sidebar -->
+<div class="sidebar" id="sidebar">
+    <div class="close-sidebar" id="closeSidebar"><i class="fas fa-times"></i></div>
+    <h3 style="color:#C8A96A; margin-bottom: 1rem;"><i class="fas fa-map-marked-alt"></i> Explore</h3>
+    <div class="scene-list" id="sceneList"></div>
+</div>
+
+<!-- Info Panel -->
+<div class="info-panel" id="infoPanel">
+    <div class="info-header">
+        <h3 id="infoTitle">Luxury Lobby</h3>
+        <div class="close-info" id="closeInfo"><i class="fas fa-times-circle"></i></div>
+    </div>
+    <img id="infoImage" src="https://placehold.co/400x200?text=Lobby" alt="scene preview">
+    <p class="info-desc" id="infoDesc">Experience elegance and warm welcome at Grand Lumina Lobby, with marble floors and golden chandeliers.</p>
+</div>
+
+<!-- Control Buttons + MiniMap -->
+<div class="controls-panel">
+    <div class="ctrl-btn" id="fullscreenBtn"><i class="fas fa-expand"></i></div>
+    <div class="ctrl-btn" id="zoomInBtn"><i class="fas fa-search-plus"></i></div>
+    <div class="ctrl-btn" id="zoomOutBtn"><i class="fas fa-search-minus"></i></div>
+    <div class="ctrl-btn" id="resetViewBtn"><i class="fas fa-sync-alt"></i></div>
+    <div class="ctrl-btn" id="autoRotateBtn"><i class="fas fa-redo-alt"></i></div>
+</div>
+<div class="mini-map" id="miniMap">
+    <span data-scene="lobby" class="active-map">🏨 Lobby</span>
+    <span data-scene="room">🛏️ Room</span>
+    <span data-scene="restaurant">🍽️ Restaurant</span>
+    <span data-scene="outdoor">🌿 Outdoor</span>
+</div>
+
+<div id="panorama"></div>
+
+<div class="footer">
+    <div>© 2025 GRAND LUMINA HOTEL — Timeless Luxury</div>
+    <div class="social-icons">
+        <a href="#"><i class="fab fa-instagram"></i></a>
+        <a href="#"><i class="fab fa-twitter"></i></a>
+        <a href="#"><i class="fab fa-facebook-f"></i></a>
+        <span><i class="fas fa-phone-alt"></i> +62 21 1234 5678</span>
+    </div>
+</div>
+
+<script>
+    // --- JSON CONFIGURATION MULTI-SCENE ---
+    const tourConfig = {
+        default: {
+            firstScene: "lobby",
+            sceneFadeDuration: 800,
+            autoRotate: 0,
+            autoRotateSpeed: 1.0
+        },
+        scenes: {
+            lobby: {
+                title: "Grand Lobby",
+                panorama: "https://cdn.pannellum.org/images/alps.jpg", // Ganti dengan asset hotel premium (sample sementara)
+                description: "Lobby mewah dengan sentuhan emas, reception area 24 jam, dan lounge yang nyaman.",
+                previewImg: "https://placehold.co/400x200?text=Lobby+Premium",
+                hotSpots: [
+                    { pitch: -5, yaw: 130, type: "scene", text: "🚪 Menuju Room", sceneId: "room", tooltip: "Kamar Deluxe" },
+                    { pitch: 10, yaw: -80, type: "info", text: "ℹ️ Resepsionis", infoContent: "Front desk siap melayani anda 24 jam." }
+                ]
+            },
+            room: {
+                title: "Deluxe Ocean Suite",
+                panorama: "https://cdn.pannellum.org/images/room.jpg",
+                description: "Kamar luas dengan pemandangan kota, tempat tidur king size, dan fasilitas premium.",
+                previewImg: "https://placehold.co/400x200?text=Deluxe+Room",
+                hotSpots: [
+                    { pitch: 0, yaw: 45, type: "scene", text: "🍽️ Ke Restaurant", sceneId: "restaurant", tooltip: "Restaurant" },
+                    { pitch: -10, yaw: -120, type: "info", text: "🛁 Bathroom", infoContent: "Bathroom with rain shower and bathtub." }
+                ]
+            },
+            restaurant: {
+                title: "Celestial Restaurant",
+                panorama: "https://cdn.pannellum.org/images/restaurant.jpg",
+                description: "Fine dining dengan menu internasional, interior elegan dan gold accents.",
+                previewImg: "https://placehold.co/400x200?text=Restaurant",
+                hotSpots: [
+                    { pitch: 5, yaw: -30, type: "scene", text: "🌳 Outdoor View", sceneId: "outdoor", tooltip: "Terrace" },
+                    { pitch: 0, yaw: 170, type: "info", text: "🍷 Wine Cellar", infoContent: "Koleksi wine terbaik dari seluruh dunia." }
+                ]
+            },
+            outdoor: {
+                title: "Panoramic Terrace",
+                panorama: "https://cdn.pannellum.org/images/bryce.jpg",
+                description: "Pemandangan sunset yang spektakuler, taman tropis dan kolam infinity.",
+                previewImg: "https://placehold.co/400x200?text=Outdoor+Pool",
+                hotSpots: [
+                    { pitch: -5, yaw: 100, type: "scene", text: "🏨 Kembali ke Lobby", sceneId: "lobby", tooltip: "Lobby" },
+                    { pitch: 10, yaw: -160, type: "info", text: "🍹 Pool Bar", infoContent: "Nikmati cocktail eksklusif di tepi kolam." }
+                ]
+            }
+        }
+    };
+
+    // Ganti panorama dengan gambar equirectangular HIGH QUALITY (ganti link jika perlu)
+    // Untuk demo premium, kita akan gunakan gambar yang sesuai style hotel. (Anda bisa ganti dengan asset anda)
+    // Atur gambar-gambar yang lebih premium:
+    const premiumAssets = {
+        lobby: "https://cdn.pannellum.org/images/alps.jpg",    // Ganti dengan link equirectangular hotel lobby
+        room: "https://cdn.pannellum.org/images/room.jpg",
+        restaurant: "https://cdn.pannellum.org/images/restaurant.jpg",
+        outdoor: "https://cdn.pannellum.org/images/bryce.jpg"
+    };
+    // Override panorama dengan premium asset (jika ada)
+    for(let s in tourConfig.scenes) {
+        if(premiumAssets[s]) tourConfig.scenes[s].panorama = premiumAssets[s];
+    }
+
+    let panoViewer = null;
+    let currentSceneId = "lobby";
+    let autoRotateActive = false;
+
+    // Fungsi load scene dengan smooth transition
+    function loadScene(sceneId, fade=true) {
+        if (!tourConfig.scenes[sceneId]) return;
+        const scene = tourConfig.scenes[sceneId];
+        currentSceneId = sceneId;
+        // update sidebar active class
+        document.querySelectorAll('.scene-item').forEach(el => {
+            if(el.dataset.scene === sceneId) el.classList.add('active');
+            else el.classList.remove('active');
+        });
+        // update mini map active class
+        document.querySelectorAll('.mini-map span').forEach(el => {
+            if(el.dataset.scene === sceneId) el.classList.add('active-map');
+            else el.classList.remove('active-map');
+        });
+        // Show loading progress bar (simulasi lazy)
+        let progressBar = document.getElementById('loading-progress');
+        progressBar.style.width = "30%";
+        setTimeout(()=> progressBar.style.width = "80%", 150);
+        
+        if(panoViewer) {
+            if(fade) {
+                // Fade effect dengan meng-overlay? Pannellum support transition via setYaw etc, namun kita reload panorama
+                panoViewer.setYaw(0);
+                panoViewer.setPitch(0);
+                panoViewer.loadScene(sceneId, scene.panorama, scene.hotSpots ? scene.hotSpots : []);
+            } else {
+                panoViewer.loadScene(sceneId, scene.panorama, scene.hotSpots ? scene.hotSpots : []);
+            }
+            // Reconfigure hotspots setelah loadScene? Pannellum secara internal akan update.
+        } else {
+            // initial
+            panoViewer = pannellum.viewer('panorama', {
+                "type": "equirectangular",
+                "panorama": scene.panorama,
+                "autoLoad": true,
+                "showZoomCtrl": false,
+                "showFullscreenCtrl": false,
+                "hotSpotDebug": false,
+                "compass": true,
+                "gyroscope": true,
+                "sceneFadeDuration": tourConfig.default.sceneFadeDuration,
+                "hotSpots": scene.hotSpots ? scene.hotSpots.map(hs => {
+                    let hsBase = {
+                        pitch: hs.pitch,
+                        yaw: hs.yaw,
+                        type: hs.type === "scene" ? "scene" : "info",
+                        text: hs.text,
+                        tooltip: hs.tooltip || hs.text,
+                        sceneId: hs.sceneId,
+                        clickHandlerFunc: (evt, args) => {
+                            if(hs.type === "scene") {
+                                loadScene(hs.sceneId, true);
+                            } else if(hs.type === "info") {
+                                showInfoPanel(scene.title, hs.infoContent, scene.previewImg);
+                            }
+                        }
+                    };
+                    if(hs.type === "scene") hsBase.sceneId = hs.sceneId;
+                    return hsBase;
+                }) : []
+            });
+            panoViewer.on("scenechange", (newSceneId) => {
+                currentSceneId = newSceneId;
+                updateActiveUI(newSceneId);
+                // update info panel reset
+                let sceneData = tourConfig.scenes[newSceneId];
+                if(sceneData) updateInfoPreview(sceneData.title, sceneData.description, sceneData.previewImg);
+                document.getElementById('loading-progress').style.width = "100%";
+                setTimeout(()=> document.getElementById('loading-progress').style.width = "0%", 500);
+            });
+        }
+        // Update info panel (tapi tidak otomatis terbuka)
+        updateInfoPreview(scene.title, scene.description, scene.previewImg);
+        setTimeout(()=> progressBar.style.width = "100%", 400);
+        setTimeout(()=> progressBar.style.width = "0%", 800);
+        
+        if(autoRotateActive) {
+            panoViewer.startAutoRotate? panoViewer.startAutoRotate() : null;
+        } else {
+            panoViewer.stopAutoRotate?.();
+        }
+    }
+
+    function updateActiveUI(sceneId) {
+        document.querySelectorAll('.scene-item').forEach(el => {
+            if(el.dataset.scene === sceneId) el.classList.add('active');
+            else el.classList.remove('active');
+        });
+        document.querySelectorAll('.mini-map span').forEach(el => {
+            if(el.dataset.scene === sceneId) el.classList.add('active-map');
+            else el.classList.remove('active-map');
+        });
+    }
+
+    function showInfoPanel(title, infoText, imgUrl) {
+        document.getElementById('infoTitle').innerText = title;
+        document.getElementById('infoDesc').innerText = infoText;
+        document.getElementById('infoImage').src = imgUrl || "https://placehold.co/400x200?text=Grand+Lumina";
+        document.getElementById('infoPanel').classList.add('open');
+    }
+    function updateInfoPreview(title, desc, imgUrl) {
+        document.getElementById('infoTitle').innerText = title;
+        document.getElementById('infoDesc').innerText = desc;
+        if(imgUrl) document.getElementById('infoImage').src = imgUrl;
+    }
+
+    // Build Sidebar List
+    function buildSidebar() {
+        const container = document.getElementById('sceneList');
+        container.innerHTML = '';
+        const scenes = tourConfig.scenes;
+        const icons = { lobby: "fa-building", room: "fa-bed", restaurant: "fa-utensils", outdoor: "fa-tree" };
+        for(let [id, data] of Object.entries(scenes)) {
+            const div = document.createElement('div');
+            div.className = 'scene-item';
+            if(id === currentSceneId) div.classList.add('active');
+            div.dataset.scene = id;
+            div.innerHTML = `<i class="fas ${icons[id] || 'fa-map-marker-alt'}"></i><span>${data.title}</span>`;
+            div.addEventListener('click', () => {
+                loadScene(id, true);
+                document.getElementById('sidebar').classList.remove('open');
+            });
+            container.appendChild(div);
+        }
+    }
+    
+    // Hotspot pulse secara otomatis dari pannellum sudah scale, tapi tambah custom tooltip style
+    // Kontrol UI
+    document.getElementById('fullscreenBtn').addEventListener('click', () => {
+        const elem = document.documentElement;
+        if (!document.fullscreenElement) {
+            elem.requestFullscreen();
+        } else {
+            document.exitFullscreen();
+        }
+    });
+    document.getElementById('zoomInBtn').addEventListener('click', () => {
+        if(panoViewer) panoViewer.setHfov(panoViewer.getHfov() - 10);
+    });
+    document.getElementById('zoomOutBtn').addEventListener('click', () => {
+        if(panoViewer) panoViewer.setHfov(panoViewer.getHfov() + 10);
+    });
+    document.getElementById('resetViewBtn').addEventListener('click', () => {
+        if(panoViewer) {
+            panoViewer.setYaw(0);
+            panoViewer.setPitch(0);
+            panoViewer.setHfov(100);
+        }
+    });
+    const autoBtn = document.getElementById('autoRotateBtn');
+    autoRotateActive = false;
+    autoBtn.addEventListener('click', () => {
+        if(panoViewer) {
+            if(!autoRotateActive) {
+                panoViewer.startAutoRotate? panoViewer.startAutoRotate(1.2) : null;
+                autoRotateActive = true;
+                autoBtn.style.background = "#C8A96A";
+                autoBtn.style.color = "#111";
+            } else {
+                panoViewer.stopAutoRotate?.();
+                autoRotateActive = false;
+                autoBtn.style.background = "rgba(17,17,17,0.8)";
+                autoBtn.style.color = "#C8A96A";
+            }
+        }
+    });
+    
+    // Sidebar toggles
+    document.getElementById('toggleSidebarBtn').addEventListener('click', () => {
+        document.getElementById('sidebar').classList.add('open');
+    });
+    document.getElementById('closeSidebar').addEventListener('click', () => {
+        document.getElementById('sidebar').classList.remove('open');
+    });
+    document.getElementById('closeInfo').addEventListener('click', () => {
+        document.getElementById('infoPanel').classList.remove('open');
+    });
+    // Mini map click
+    document.querySelectorAll('.mini-map span').forEach(el => {
+        el.addEventListener('click', (e) => {
+            const sceneId = el.dataset.scene;
+            if(sceneId) loadScene(sceneId, true);
+        });
+    });
+    // header scroll effect
+    window.addEventListener('scroll', () => {
+        const header = document.getElementById('mainHeader');
+        if(window.scrollY > 50) header.classList.add('scrolled');
+        else header.classList.remove('scrolled');
+    });
+    // Optional: Gyroscope for mobile sudah diaktifkan via pannellum init
+    // Preload awal + sidebar build
+    buildSidebar();
+    // Initial load
+    loadScene(tourConfig.default.firstScene);
+    // Custom styling for tooltip hover
+    setInterval(() => {
+        // perbaiki hotspot tooltip untuk style premium
+        document.querySelectorAll('.pnlm-hotspot').forEach(hs => {
+            if(!hs.getAttribute('data-custom')) {
+                hs.setAttribute('data-custom', 'true');
+                hs.addEventListener('mouseenter', (e) => {
+                    const txt = hs.getAttribute('data-tooltip') || hs.innerText;
+                    if(txt) {
+                        let tool = document.createElement('div');
+                        tool.className = 'custom-tooltip';
+                        tool.innerText = txt;
+                        tool.style.position = 'absolute';
+                        tool.style.pointerEvents = 'none';
+                        tool.style.zIndex = 2000;
+                        document.body.appendChild(tool);
+                        const rect = hs.getBoundingClientRect();
+                        tool.style.left = rect.left + 'px';
+                        tool.style.top = (rect.top - 30) + 'px';
+                        hs._tooltip = tool;
+                    }
+                });
+                hs.addEventListener('mouseleave', () => {
+                    if(hs._tooltip) hs._tooltip.remove();
+                });
+            }
+        });
+    }, 1000);
+    
+    // Background music optional (premium)
+    // uncomment jika ingin musik latar:
+    /*
+    let bgMusic = new Audio('https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3');
+    bgMusic.loop = true;
+    bgMusic.volume = 0.2;
+    document.body.addEventListener('click', () => { if(bgMusic.paused) bgMusic.play(); }, { once: true });
+    */
+    // Night mode toogle? (opsional tambahan tombol)
+    console.log("Virtual Tour 360° Hotel Siap — Gunakan gambar equirectangular 2:1 anda sendiri di assets/ untuk pengalaman nyata");
+</script>
+</body>
+</html>
